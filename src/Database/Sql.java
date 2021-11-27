@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class Sql {
     private final ObjectToDb otb = new ObjectToDb();
     private Connection connection;
+    private String dburl;
 
     public Connection getConnection() {
         return connection;
@@ -23,11 +24,20 @@ public class Sql {
      * @return
      * @throws SQLException
      */
-    public boolean createConnection(String database, String user, String password) throws SQLException {
+    //Todo warum machst du hier public boolean
+    public boolean createConnection(String databaseTyp, String database, String user, String password) throws SQLException {
+        if (databaseTyp == "mariadb"){
+            dburl = "jdbc:mariadb://localhost:3306/";
+        }
+        if (databaseTyp == "mysql"){
+            dburl = "jdbc:mysql://localhost/";
+        }
         this.connection = DriverManager.getConnection(
-                "jdbc:mariadb://localhost:3306/"+database, user, password);
+                dburl+database, user, password);
         return this.isConnected();
     }
+    // TODO hier benoetige ich noch den Connector fuer MYSQL
+    // Vorschlag Auswahl zwischen mariadb und mysql
 
     public boolean isConnected() throws SQLException {
         return this.connection.isValid(10);

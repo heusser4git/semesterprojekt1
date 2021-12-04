@@ -26,7 +26,7 @@ public class ObjectToDb {
     }
 
     /**
-     * Returns the Name of the Object
+     * Returns the Name (simpleName) of the Object
      * @param object
      * @param <T>
      * @return

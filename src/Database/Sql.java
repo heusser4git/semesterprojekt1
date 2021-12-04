@@ -17,10 +17,11 @@ public class Sql{
 
     /**
      * Creates a DB Connection
-     * @param database
-     * @param user
-     * @param password
-     * @return
+     * @param databaseTyp   String "mariadb" or "mysql"
+     * @param database      String database name
+     * @param user          String database-user
+     * @param password      String database-password
+     * @return boolean Returns a TRUE for positive Connection
      * @throws SQLException
      */
     public boolean createConnection(String databaseTyp, String database, String user, String password) throws SQLException {

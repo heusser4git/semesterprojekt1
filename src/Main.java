@@ -8,9 +8,12 @@ public class Main {
 ObjectToDb otb = new ObjectToDb();
 
         Sql sql = new Sql();
-        sql.createConnection("semesterprojekt", "root", "123456");
+        //Todo beim erstellen des Objekte geben wir mit, um was es sich fuer eine Datenbank handelt.
+            // so Ist die Software mit verschiedenen Datenbanken Nutzbar.
+            // mariadb oder mysql
+        sql.createConnection("mysql", "semesterprojekt", "root", "luka1996");
 
-        Project p = new Project();
+ /*       Project p = new Project();
         p.setId(2);
         p.setName("hansi");
 
@@ -44,6 +47,6 @@ ObjectToDb otb = new ObjectToDb();
 //        sql.createTable(at);
 //        sql.createTable(a);
 
-
+*/
     }
 }

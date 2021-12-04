@@ -32,7 +32,7 @@ public class ObjectToDb {
      * @return
      */
     public <T> String getObjectName(T object) {
-        return object.getClass().getName();
+        return object.getClass().getSimpleName();
     }
 
     /**
@@ -97,7 +97,14 @@ public class ObjectToDb {
     }
 
     public <T> Method getObjectMethod(T object, String methodName) throws NoSuchMethodException {
-        return object.getClass().getMethod(methodName);
+        for (Method method : object.getClass().getMethods()) {
+            method.setAccessible(true);
+            if(method.getName().equals(methodName)) {
+                return method;
+            }
+        }
+        return null;
+//        return object.getClass().getMethod(methodName);
     }
 
     /**

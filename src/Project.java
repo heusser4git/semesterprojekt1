@@ -3,9 +3,9 @@ import Database.DBField;
 import java.util.ArrayList;
 
 public class Project {
-    @DBField(name="id", isPrimaryKey = true, datatype = "int", datatypesize = "(11)", isAutoincrement = true, type = Integer.class)
+    @DBField(name="id", isFilter = true, isPrimaryKey = true, datatype = "int", datatypesize = "(11)", isAutoincrement = true)
     private int id;
-    @DBField(name = "name", useQuotes = true, datatype = "varchar", datatypesize = "(255)", type = String.class)
+    @DBField(name = "name", isFilter = true, useQuotes = true, datatype = "varchar", datatypesize = "(255)", type = String.class)
     private String name;
     @DBField(isNotInDb = true)
     private ArrayList floors;

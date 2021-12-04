@@ -2,14 +2,17 @@ import Database.DBField;
 
 import java.util.ArrayList;
 
+/**
+ * Floor aka Hauptgruppe or Etage (expl. 1. Stock)
+ */
 public class Floor {
-    @DBField(name="id", isPrimaryKey = true, datatype = "int(11)", isAutoincrement = true, type = Integer.class)
+    @DBField(name="id", isFilter = true, isPrimaryKey = true, datatype = "int(11)", isAutoincrement = true, type = Integer.class)
     private int id;
-    @DBField(name = "name", useQuotes = true, datatype = "varchar(255)", type = String.class)
+    @DBField(name = "name", isFilter = true, useQuotes = true, datatype = "varchar(255)", type = String.class)
     private String name;
     @DBField(isNotInDb = true)
     private ArrayList addresses;
-    @DBField(name = "project_idProject", isForeignKey=true, foreignTable = "project", foreignTableColumn = "id", datatype = "int(11)", type = Integer.class)
+    @DBField(name = "project_idProject", isFilter = true, isForeignKey=true, foreignTable = "project", foreignTableColumn = "id", datatype = "int(11)", type = Integer.class)
     private int idProject;
 
     public int getId() {

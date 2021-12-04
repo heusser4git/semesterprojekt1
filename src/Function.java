@@ -2,8 +2,11 @@ import Database.DBField;
 
 import java.util.ArrayList;
 
+/**
+ * Function aka Mittelgruppe (expl. Licht)
+ */
 public class Function {
-    @DBField(name="id", isPrimaryKey = true, datatype = "int(11)", isAutoincrement = true, type = Integer.class)
+    @DBField(name="id", isFilter = true, isPrimaryKey = true, datatype = "int(11)", isAutoincrement = true, type = Integer.class)
     private int id;
     @DBField(name = "name", useQuotes = true, datatype = "varchar(255)", type = String.class)
     private String name;

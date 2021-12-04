@@ -7,10 +7,10 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class Sql {
+public class Sql{
     private final ObjectToDb otb = new ObjectToDb();
     private Connection connection;
-
+    private String dburl;
     public Connection getConnection() {
         return connection;
     }
@@ -23,9 +23,14 @@ public class Sql {
      * @return
      * @throws SQLException
      */
-    public boolean createConnection(String database, String user, String password) throws SQLException {
-        this.connection = DriverManager.getConnection(
-                "jdbc:mariadb://localhost:3306/"+database, user, password);
+    public boolean createConnection(String databaseTyp, String database, String user, String password) throws SQLException {
+        if (databaseTyp == "mariadb"){
+            dburl = "jdbc:mariadb://localhost:3306/";
+        }
+        if (databaseTyp == "mysql"){
+            dburl = "jdbc:mysql://localhost/";
+        }
+        this.connection = DriverManager.getConnection(dburl + database, user, password);
         return this.isConnected();
     }
 
@@ -33,30 +38,34 @@ public class Sql {
         return this.connection.isValid(10);
     }
 
-
-    public <T> String sqlInsertObject(T object) {
-//      INSERT INTO Customers SET ID=2, FirstName='User2';
+    /**
+     * Creates the SQL-Query String to INSERT a object into the DB
+     * @param object    Object with Data to be written into the DB
+     * @return          SQL-Query String for the Sql-INSERT
+     */
+    private <T> String sqlInsertObject(T object) {
+      // INSERT INTO Customers SET ID=2, FirstName='User2';
         AtomicReference<String> sqlInserts = new AtomicReference<>("INSERT INTO " + otb.getObjectName(object) + " SET ");
         String className = otb.getObjectName(object);
         ArrayList<Field> fields = otb.getObjectFields(object);
         fields.forEach(field -> {
-                    DBField dbField = otb.getDbFieldFromField(field);
-                    if(!dbField.isNotInDb() && !dbField.isAutoincrement()) {
-                        Method method = null;
-                        try {
-                            method = object.getClass().getMethod("get" + this.capitalize(field.getName()));
-                        } catch (NoSuchMethodException e) {
-                            e.printStackTrace();
-                        }
-                        try {
-                            sqlInserts.set(sqlInserts + this.sqlPairs(field, method.invoke(object)));
-                        } catch (IllegalAccessException e) {
-                            e.printStackTrace();
-                        } catch (InvocationTargetException e) {
-                            e.printStackTrace();
-                        }
+                DBField dbField = otb.getDbFieldFromField(field);
+                if(!dbField.isNotInDb() && !dbField.isAutoincrement()) {
+                    Method method = null;
+                    try {
+                        method = object.getClass().getMethod("get" + this.capitalize(field.getName()));
+                    } catch (NoSuchMethodException e) {
+                        e.printStackTrace();
+                    }
+                    try {
+                        sqlInserts.set(sqlInserts + this.sqlPairs(field, method.invoke(object)));
+                    } catch (IllegalAccessException e) {
+                        e.printStackTrace();
+                    } catch (InvocationTargetException e) {
+                        e.printStackTrace();
                     }
                 }
+            }
         );
         // remove the last ","
         return sqlInserts.toString().substring(0, sqlInserts.toString().length()-1);
@@ -64,10 +73,9 @@ public class Sql {
 
     /**
      * Makes Field=Value Pairs
-     * @param field
-     * @param value
-     * @param <T>
-     * @return
+     * @param field     Field which ist the column-part of the pair
+     * @param value     Value which has to be paired to the column-part
+     * @return  SQL-String Pair like <firstname='User2',>
      */
     private <T> String sqlPairs(Field field, Object value) {
         DBField dbField = otb.getDbFieldFromField(field);
@@ -84,27 +92,25 @@ public class Sql {
         return "";
     }
 
-//    private String generateSqlColumnName(Field field) {
-//        if(field.getType() == ArrayList.class) {
-//            return null;
-//        }
-//        return field.getName();
-//    }
+    /**
+     * Capitalizes the given String (first letter big)
+     * @param str   String to capitalize
+     * @return      Capitalized String
+     */
     private String capitalize(String str) {
         return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
 
     /**
-     * Creates a table for object if its not allready there
-     * @param object
-     * @param <T>
-     * @return
+     * Creates a table for object if it is not allready there
+     * @param object    Object to create a DB-Table for
+     * @return          true = table created, false = checked if table-columns had to be changed
      * @throws SQLException
      */
     public <T> boolean createTable(T object) throws SQLException {
         // check if table allready exists for this object
         String sql = "SELECT COUNT(*) as result FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = '" + otb.getObjectName(object) + "'";
-        if(this.dbVorhanden(sql)) {
+        if(this.dbAvailable(sql)) {
             // table allready exists -> ALTER
             this.alterTableColumn(object);
             return false;
@@ -118,15 +124,15 @@ public class Sql {
 
     /**
      * Executes the sql and checks the result-column "result" for an 1 or 0
-     * @param sql
-     * @return
+     * @param sql   Sql-Query String for checking the DB with
+     * @return      true = is allready in DB
      * @throws SQLException
      */
-    private boolean dbVorhanden(String sql) throws SQLException {
+    private boolean dbAvailable(String sql) throws SQLException {
         ResultSet resultSet = this.executeQuery(sql);
         resultSet.first();
-        int anzahl = Integer.parseInt(resultSet.getString("result"));
-        if(anzahl>0) {
+        int count = Integer.parseInt(resultSet.getString("result"));
+        if(count>0) {
             return true;
         }
         return false;
@@ -134,11 +140,9 @@ public class Sql {
 
     /**
      * Checks if the table has all columns required for the object
-     * @param object
-     * @param <T>
-     * @return
+     * @param <T>   Object to check the Columns
      */
-    public <T> boolean alterTableColumn(T object) throws SQLException {
+    private <T> void alterTableColumn(T object) throws SQLException {
         String className = otb.getObjectName(object);
         ArrayList<Field> fields = otb.getObjectFields(object);
         fields.forEach(field -> {
@@ -147,11 +151,11 @@ public class Sql {
                     String sql = "SELECT COUNT(*) as result FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = '" + className + "' AND column_name = '" + dbField.name() + "'";
                     try {
                         // column doesnt exist -> alter table
-                        if (!this.dbVorhanden(sql)) {
+                        if (!this.dbAvailable(sql)) {
                             this.addColumnToTable(className, field);
                         }
                         // column exists, but has the wrong type -> reset the type
-                        if (this.dbVorhanden(sql) && !this.checkDbColumnType(className, field)) {
+                        if (this.dbAvailable(sql) && !this.checkDbColumnType(className, field)) {
                             this.resetColumnAtTable(className, field);
                         }
                     } catch (SQLException e) {
@@ -160,16 +164,14 @@ public class Sql {
                 }
             }
         );
-        return true;
     }
 
     /**
      * Creates a CREATE TABLE sql-string for the given object
-     * @param object
-     * @param <T>
-     * @return
+     * @param <T>   Object to create a table for
+     * @return      Returns the SQL-Query String used to create the Table for given object
      */
-    public <T> String sqlCreateTable(T object) {
+    private <T> String sqlCreateTable(T object) {
         // CREATE TABLE Persons (PersonID int, LastName varchar(255), FirstName varchar(255), Address varchar(255), City varchar(255));
         String className = otb.getObjectName(object);
         AtomicReference<String> sql = new AtomicReference<>("CREATE TABLE " + className + " (");
@@ -188,29 +190,12 @@ public class Sql {
     }
 
     /**
-     * Returns the SQL datatype for a attributeType
-     * @param attributeType
-     * @param <T>
-     * @return
+     * Adds a Column to a DB-Table
+     * @param tableName Name of the target table
+     * @param field     Object-Field
+     * @return boolean  if true, column was created
+     * @throws SQLException
      */
-    private <T> String sqlTypeFromAttributeType(T attributeType) {
-        return this.sqlTypeFromAttributeType(attributeType, false);
-    }
-    private <T> String sqlTypeFromAttributeType(T attributeType, boolean withoutFieldsize) {
-        String sqlFieldtyp = "";
-        if(attributeType == String.class) {
-            sqlFieldtyp = FieldTypes.STRING.sqlNotation;
-            if(withoutFieldsize)
-                sqlFieldtyp = "varchar";
-        } else if(attributeType == int.class) {
-            sqlFieldtyp = FieldTypes.INT.sqlNotation;
-        } else if(attributeType == ArrayList.class) {
-            // foreign key column zu sub-object-table
-            sqlFieldtyp = FieldTypes.INT.sqlNotation;
-        }
-        return sqlFieldtyp;
-    }
-
     private <T> boolean addColumnToTable(String tableName, Field field) throws SQLException {
         String sqlColumn = this.getSqlStringColumn(field);
         if(sqlColumn != null) {
@@ -286,7 +271,8 @@ public class Sql {
      */
     private ResultSet executeQuery(String sql) throws SQLException {
         Statement statement = this.connection.createStatement();
-        System.out.println(sql);
+        statement.executeUpdate(sql);
+        //System.out.println(sql);
         return statement.executeQuery(sql);
     }
 
@@ -296,18 +282,83 @@ public class Sql {
      * @param <T>
      * @return
      */
-    public <T> ArrayList<T> select(T filter) {
-
-        String className = otb.getObjectName(filter);
-
-        String sql = "Select * from " + className;
-
-        // TODO hole die Daten aus der DB
-
+    public <T> ArrayList<T> select(T filter) throws InvocationTargetException, NoSuchMethodException, IllegalAccessException, SQLException, InstantiationException {
         ArrayList<T> result = new ArrayList<>();
-
+        String className = otb.getObjectName(filter);
+        String where = this.getWhereClauseOfObject(filter);
+        String sql = "SELECT * FROM " + className + " WHERE " + where;
+        ResultSet resultSet = this.executeQuery(sql);
+        // going through the select-results
+        while (resultSet.next()) {
+            T newObject = (T) filter.getClass().getDeclaredConstructor().newInstance();
+            // going through the fields of the filter-objects
+            for (Field field : otb.getObjectFields(filter)) {
+                Method method = otb.getObjectMethod(newObject, "set" + this.capitalize(field.getName()));
+                DBField dbField = otb.getDbFieldFromField(field);
+                if (!dbField.isNotInDb() && dbField.name().length() > 0)
+                    if (dbField.type().equals(Integer.class)) {
+                        // integer-values as int
+                        int value = resultSet.getInt(dbField.name());
+                        if (value > 0) {
+                            method.invoke(newObject, value);
+                        }
+                    } else if (dbField.type().equals(String.class)) {
+                        // String-values as String
+                        String string = resultSet.getString(dbField.name());
+                        if (string != null && string.length() > 0) {
+                            method.invoke(newObject, string);
+                        }
+                    }
+                }
+            result.add(newObject);
+        }
         return result;
     }
+
+    /**
+     * Creates a WhereClause for a Object, which is used to SELECT the Data out of the DB-Table
+     * @param filter    A Filter-Object which contains the Filter-Data
+     * @return          Returns the WHERE-Part of the SQL-SELECT-Query
+     * @throws NoSuchMethodException
+     * @throws InvocationTargetException
+     * @throws IllegalAccessException
+     */
+    public <T> String getWhereClauseOfObject(T filter) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        String where = "";
+        for (Field field : otb.getObjectFields(filter)) {
+            DBField dbField = otb.getDbFieldFromField(field);
+            Method method = filter.getClass().getMethod("get" + this.capitalize(field.getName()));
+            if(dbField.isPrimaryKey()) {
+                if(where.length()>0)
+                    where += " AND ";
+                where += dbField.name() + " IS NOT NULL";
+                break;
+            }
+        }
+        for (Field field : otb.getObjectFields(filter)) {
+            DBField dbField = otb.getDbFieldFromField(field);
+            if(dbField.isFilter()) {
+                Method method = filter.getClass().getMethod("get" + this.capitalize(field.getName()));
+                if (dbField.type().equals(Integer.class)) {
+                    int i = (int) method.invoke(filter);
+                    if (i > 0) {
+                        if (where.length() > 0)
+                            where += " AND ";
+                        where += dbField.name() + "=" + i;
+                    }
+                } else if (dbField.type().equals(String.class)) {
+                    String str = (String) method.invoke(filter);
+                    if (str != null && str.length() > 0) {
+                        if (where.length() > 0)
+                            where += " AND ";
+                        where += dbField.name() + " like '" + str + "'";
+                    }
+                }
+            }
+        }
+        return where;
+    }
+
     public <T> boolean insert(T object) throws SQLException {
         this.executeQuery(this.sqlInsertObject(object));
         return true;
